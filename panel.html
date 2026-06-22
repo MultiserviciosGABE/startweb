@@ -1,0 +1,541 @@
+﻿
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel | Multiservicios GABE</title>
+
+<style>
+body{font-family:Arial;background:#f4f6f9;margin:0;}
+header{background:#0d1b2a;color:white;padding:15px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;}
+.header-left{display:flex;flex-direction:column;}
+.usuario-info{font-size:14px;color:#90e0ef;display:flex;gap:15px;flex-wrap:wrap;}
+#horaActual{color:#ffd166;}
+header button{background:#0077b6;border:none;padding:8px 15px;color:white;border-radius:6px;cursor:pointer;}
+.btnTerminar{background:#0077b6;border:none;padding:6px 12px;color:white;border-radius:6px;cursor:pointer;margin-top:5px;}
+.header-buttons{display:flex;gap:10px;}
+
+.dashboard{display:flex;gap:20px;padding:20px;flex-wrap:wrap;}
+.card{flex:1;min-width:200px;background:white;padding:20px;border-radius:10px;box-shadow:0 5px 15px rgba(0,0,0,0.1);text-align:center;}
+.card h2{margin:0;font-size:32px;color:#0077b6;}
+
+#listaConsultas{text-align:left;margin-top:10px;font-size:14px;line-height:1.6;}
+#listaConsultas div{padding:6px 0;border-bottom:1px solid #eee;}
+
+.container{padding:10px;overflow-x:auto;}
+table{width:90%;border-collapse:collapse;background:white;box-shadow:0 5px 10px rgba(0,0,0,0.1);}
+th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left;}
+th{background:#1b263b;color:white;}
+
+.btnCerrar{background:#e63946;border:none;color:white;padding:5px 10px;border-radius:5px;cursor:pointer;}
+.estadoCerrado{background:#2ecc71;color:white;padding:5px 10px;border-radius:5px;font-size:13px;}
+.filaNueva{background:#fff3b0;}
+
+.buscar{padding:10px;margin-bottom:15px;width:260px;border-radius:6px;border:1px solid #ccc;}
+
+.modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:none;justify-content:center;align-items:center;}
+.modal-box{background:white;padding:20px;border-radius:10px;width:400px;}
+
+.notificacion{position:fixed;top:20px;right:20px;background:#ffd166;color:#000;padding:12px 18px;border-radius:8px;font-weight:bold;box-shadow:0 5px 15px rgba(0,0,0,0.2);display:none;z-index:999;}
+
+.ordenNueva{background:#fff3b0;padding:6px;border-radius:6px;margin-bottom:5px;}
+.ordenProceso{background:#ffe0b2;padding:6px;border-radius:6px;margin-bottom:5px;}
+.ordenTerminada{background:#d8f3dc;padding:6px;border-radius:6px;margin-bottom:5px;}
+
+#listaOrdenesNuevas div,
+#listaOrdenesProceso div,
+#listaOrdenesTerminadas div{
+padding:6px 0;border-bottom:1px solid #eee;font-size:13px;text-align:left;
+}
+
+#loaderProceso{
+position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.35);
+display:none;justify-content:center;align-items:center;z-index:9999;
+}
+
+.loaderSpinner{
+border:6px solid #f3f3f3;border-top:6px solid #0077b6;border-radius:50%;
+width:45px;height:45px;animation:spinLoader 1s linear infinite;
+}
+
+@keyframes spinLoader{
+0%{transform:rotate(0deg);}
+100%{transform:rotate(360deg);}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<div class="header-left">
+<h2>Panel Multiservicios GABE</h2>
+<div class="usuario-info">
+<span id="usuarioPanel"></span>
+<span id="horaActual"></span>
+</div>
+<div id="notificacion" class="notificacion">🔔 Nueva consulta recibida</div>
+</div>
+
+<div class="header-buttons">
+<button onclick="window.location='inventario.html'">Inventario</button>
+<button onclick="window.location='consultar.html'">Reportes</button>
+<button onclick="window.location='orden.html'">Nueva Orden de Trabajo</button>
+<button onclick="logout()">Cerrar sesión</button>
+</div>
+</header>
+
+<div class="dashboard">
+<div class="card">
+<h3>Inventario Bajo</h3>
+<h2 id="stockBajo">0</h2>
+</div>
+
+
+<div class="card">
+<h3>Consultas Pendientes</h3>
+<p style="font-size:11px;">Consultas enviadas desde la pagina Web</p>
+<div id="listaConsultas"></div>
+<h2 id="pendientes">0</h2>
+</div>
+
+<div class="card">
+<h3>Órdenes Nuevas</h3>
+<div id="listaOrdenesNuevas"></div>
+<h2 id="ordenesNuevas">0</h2>
+</div>
+
+<div class="card">
+<h3>Órdenes en Proceso</h3>
+<div id="listaOrdenesProceso"></div>
+<h2 id="ordenesProceso">0</h2>
+</div>
+
+<div class="card">
+<h3>Órdenes Terminadas</h3>
+<div id="listaOrdenesTerminadas"></div>
+<h2 id="ordenesTerminadas">0</h2>
+</div>
+
+</div>
+
+<div class="container">
+<input class="buscar" id="buscar" placeholder="Buscar Consulta..." onkeyup="filtrar()">
+
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Fecha</th>
+<th>Nombre</th>
+<th>Teléfono</th>
+<th>Consulta</th>
+<th>Estado</th>
+<th>Acción</th>
+</tr>
+</thead>
+<tbody id="tablaConsultas"></tbody>
+</table>
+</div>
+
+<div class="modal" id="modal">
+<div class="modal-box">
+<h3>Detalle de Consulta</h3>
+<p id="detalle"></p>
+<button onclick="cerrarModal()">Cerrar</button>
+</div>
+</div>
+
+<script>
+
+const API="https://script.google.com/macros/s/AKfycbzAUi61M5P9FnHz-fqkDpXO5gEgCCTbcGca4GOt9swgLXgTBNH5wbPfbCjXS5DQKOR4/exec";
+
+function api(url){
+return fetch(API+url);
+}
+
+async function safeFetch(url){
+try{
+const res = await fetch(url);
+return await res.json();
+}catch(e){
+console.error("Error API:",e);
+return [];
+}
+}
+
+let consultas=[];
+let consultasOriginal=[];
+
+if(!localStorage.getItem("session")){
+window.location="login.html";
+}
+
+const session = JSON.parse(localStorage.getItem("session"));
+/* ===== SEGURIDAD AGREGADA (NO MODIFICA CODIGO EXISTENTE) ===== */
+
+/* Bloquear acceso si es cliente intentando abrir panel por URL */
+if(session && session.rol && session.rol.toLowerCase()=="cliente"){
+alert("Acceso solo para administradores");
+window.location="cliente.html";
+}
+
+/* Control de tiempo de sesión automático (30 minutos) */
+const tiempoSesion = localStorage.getItem("sessionTime");
+
+if(tiempoSesion){
+const ahora = Date.now();
+const diferencia = ahora - tiempoSesion;
+const minutos = diferencia / 60000;
+
+if(minutos > 30){
+alert("Sesión expirada");
+localStorage.removeItem("session");
+localStorage.removeItem("sessionTime");
+window.location="login.html";
+}
+}
+
+/* ===== FIN SEGURIDAD ===== */
+
+
+if(session){
+document.getElementById("usuarioPanel").innerText =
+"Bienvenido: "+session.nombre+" | Tipo: "+session.rol;
+}
+
+function actualizarHora(){
+let ahora = new Date();
+let fecha = ahora.toLocaleDateString("es-MX",{weekday:"long",year:"numeric",month:"short",day:"numeric"});
+let hora = ahora.toLocaleTimeString("es-MX",{hour:"numeric",minute:"2-digit",second:"2-digit",hour12:true});
+document.getElementById("horaActual").innerText = "📅 "+fecha+"  🕒 "+hora;
+}
+
+setInterval(actualizarHora,1000);
+actualizarHora();
+
+async function cargarTabla(){
+
+const data = await safeFetch(API+"?tipo=consultas");
+
+if(!Array.isArray(data)) return;
+
+consultas=data;
+consultasOriginal=[...consultas];
+
+mostrarTabla();
+
+}
+
+function mostrarTabla(){
+
+let pendientes=0;
+let html="";
+
+consultas.forEach(c=>{
+
+if(c.estado=="Pendiente") pendientes++;
+
+let fecha = c.fecha ? new Date(c.fecha).toLocaleDateString() : "";
+
+html+=`
+<tr class="${c.estado=='Pendiente' ? 'filaNueva' : ''}">
+<td>${c.id}</td>
+<td>${fecha}</td>
+<td>${c.nombre}</td>
+<td>${c.telefono}</td>
+<td><button onclick="verDetalle('${c.descripcion}')">Ver</button></td>
+<td>${c.estado}</td>
+<td>
+${c.estado=="Pendiente"
+? `<button class="btnTerminar" onclick="cerrarConsulta('${c.id}')">Terminar</button>`
+: `<span class="estadoCerrado">Terminado</span>`}
+</td>
+</tr>
+`;
+
+});
+
+document.getElementById("tablaConsultas").innerHTML=html;
+document.getElementById("pendientes").innerText=pendientes;
+}
+
+async function cerrarConsulta(id){
+
+try{
+await api("?tipo=cerrar&id="+id);
+}catch(e){
+console.error(e);
+}
+
+cargarTabla();
+cargarPendientes();
+
+}
+
+function filtrar(){
+
+const texto=document.getElementById("buscar").value.toLowerCase();
+
+if(texto===""){
+consultas=[...consultasOriginal];
+mostrarTabla();
+return;
+}
+
+consultas = consultasOriginal.filter(c=>
+(c.nombre||"").toLowerCase().includes(texto) ||
+String(c.telefono||"").includes(texto) ||
+String(c.id||"").includes(texto)
+);
+
+mostrarTabla();
+
+}
+
+function verDetalle(texto){
+document.getElementById("detalle").innerText=texto;
+document.getElementById("modal").style.display="flex";
+}
+
+function cerrarModal(){
+document.getElementById("modal").style.display="none";
+}
+
+function logout(){
+localStorage.removeItem("session");
+window.location="login.html";
+}
+
+async function cargarPendientes(){
+
+try{
+
+const res = await fetch(API,{
+method:"POST",
+body:new URLSearchParams({
+tipo:"consultasPendientes"
+})
+});
+
+const data = await res.json();
+
+const lista = document.getElementById("listaConsultas");
+
+let html="";
+let contador=0;
+
+data.forEach(c=>{
+
+contador++;
+
+html+=`
+<div>
+<b>${c.nombre}</b><br>
+Consulta: ${c.consulta}<br>
+Tel: ${c.telefono}<br>
+
+<button class="btnTerminar" onclick="cerrarConsulta('${c.id}')">
+Cerrar Consulta
+</button>
+
+</div>
+`;
+
+});
+
+lista.innerHTML=html;
+
+document.getElementById("pendientes").innerText=contador;
+
+}catch(e){
+
+console.error("Error cargando consultas pendientes",e);
+
+}
+
+}
+
+async function procesarOrden(id){
+
+mostrarLoader();
+
+try{
+await api("?tipo=procesarOrden&id="+id);
+}catch(e){
+console.error(e);
+}
+
+ocultarLoader();
+cargarOrdenes();
+
+}
+
+async function eliminarOrden(id){
+
+if(!confirm("¿Eliminar esta orden?")) return;
+
+mostrarLoader();
+
+try{
+await api("?tipo=eliminarOrden&id="+id);
+}catch(e){
+console.error(e);
+}
+
+ocultarLoader();
+cargarOrdenes();
+
+}
+
+async function terminarOrden(id){
+
+mostrarLoader();
+
+try{
+await api("?tipo=cerrarOrden&id="+id);
+}catch(e){
+console.error(e);
+}
+
+ocultarLoader();
+cargarOrdenes();
+
+}
+
+async function cargarOrdenes(){
+
+const data = await safeFetch(API+"?tipo=ordenes&nocache="+Date.now());
+
+let nuevas=0;
+let proceso=0;
+let terminadas=0;
+
+let htmlN="";
+let htmlP="";
+let htmlT="";
+
+data.forEach(o=>{
+
+if(o.estado=="Nueva"){
+
+nuevas++;
+
+htmlN+=`
+<div class="ordenNueva">
+<b>${o.orden}</b><br>
+Cliente: ${o.cliente}<br>
+Trabajo: ${o.trabajo}<br>
+
+<button class="btnTerminar" onclick="procesarOrden('${o.orden}')">Procesar Orden</button>
+<button class="btnTerminar" onclick="terminarOrden('${o.orden}')">Terminar Orden</button>
+<button class="btnCerrar" onclick="eliminarOrden('${o.orden}')">Eliminar</button>
+</div>
+`;
+
+}
+
+else if(o.estado=="Proceso"){
+
+proceso++;
+
+htmlP+=`
+<div class="ordenProceso">
+<b>${o.orden}</b><br>
+Cliente: ${o.cliente}<br>
+Trabajo: ${o.trabajo}<br>
+
+<button class="btnTerminar" onclick="terminarOrden('${o.orden}')">Terminar Orden</button>
+</div>
+`;
+
+}
+
+else if(o.estado=="Terminada"){
+
+if(!o.fechaTerminada) return;
+
+let hoy = new Date();
+let fechaOrden = new Date(o.fechaTerminada);
+
+if(
+fechaOrden.getFullYear() === hoy.getFullYear() &&
+fechaOrden.getMonth() === hoy.getMonth() &&
+fechaOrden.getDate() === hoy.getDate()
+){
+
+terminadas++;
+
+let fechaCreada = o.fecha ? new Date(o.fecha).toLocaleString("es-MX") : "";
+let fechaTerminada = new Date(o.fechaTerminada).toLocaleString("es-MX");
+
+htmlT+=`
+<div class="ordenTerminada">
+<b>${o.orden}</b><br>
+Cliente: ${o.cliente}<br>
+Trabajo: ${o.trabajo}<br>
+Orden Creada: ${fechaCreada}<br>
+Orden Terminada: ${fechaTerminada}<br>
+</div>
+`;
+
+}
+
+}
+
+});
+
+document.getElementById("listaOrdenesNuevas").innerHTML=htmlN;
+document.getElementById("listaOrdenesProceso").innerHTML=htmlP;
+document.getElementById("listaOrdenesTerminadas").innerHTML=htmlT;
+
+document.getElementById("ordenesNuevas").innerText=nuevas;
+document.getElementById("ordenesProceso").innerText=proceso;
+document.getElementById("ordenesTerminadas").innerText=terminadas;
+
+}
+
+function mostrarLoader(){
+document.getElementById("loaderProceso").style.display="flex";
+}
+
+function ocultarLoader(){
+document.getElementById("loaderProceso").style.display="none";
+}
+
+/* CARGA INICIAL */
+
+cargarTabla();
+cargarPendientes();
+cargarOrdenes();
+
+setInterval(cargarPendientes,3000);
+setInterval(cargarOrdenes,3000);
+
+window.addEventListener("beforeunload", function () {
+    fetch("login.html");
+});
+
+async function cargarStockBajo(){
+try{
+const res=await fetch("https://script.google.com/macros/s/AKfycbw7Zbu_e2SuGJbNdXgYDuWv6qbANe5yCeAxAzh0qdC7d-H6vwC0CMt9YLBoOrxSKJed/exec?tipo=inventario");
+const data=await res.json();
+let bajo=data.filter(p=>parseInt(p.cantidad)<=5);
+document.getElementById("stockBajo").innerText=bajo.length;
+}catch(e){console.log(e);}
+}
+cargarStockBajo();
+
+</script>
+
+<audio id="sonidoNotif">
+<source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg">
+</audio>
+
+<div id="loaderProceso">
+<div class="loaderSpinner"></div>
+</div>
+
+</body>
+</html>

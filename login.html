@@ -1,0 +1,184 @@
+﻿<!DOCTYPE html>
+
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login | Multiservicios GABE</title>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:Arial;
+}
+
+body{
+background:linear-gradient(135deg,#0077b6,#00b4d8,#90e0ef);
+height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+.login-box{
+background:white;
+padding:40px;
+border-radius:10px;
+width:350px;
+box-shadow:0 10px 30px rgba(0,0,0,0.2);
+text-align:center;
+}
+
+.login-box img{
+width:170px;
+margin-bottom:0px;
+}
+
+.login-box h2{
+margin-bottom:20px;
+color:#0d1b2a;
+}
+
+.login-box input{
+width:100%;
+padding:12px;
+margin:10px 0;
+border-radius:6px;
+border:1px solid #ccc;
+font-size:14px;
+}
+
+.login-box button{
+width:100%;
+padding:12px;
+background:#0077b6;
+color:white;
+border:none;
+border-radius:6px;
+font-weight:bold;
+cursor:pointer;
+transition:0.3s;
+}
+
+.login-box button:hover{
+background:#00b4d8;
+}
+
+#error{
+margin-top:10px;
+color:red;
+font-size:14px;
+}
+
+.btn-regresar{
+display:block;
+margin-top:12px;
+padding:10px;
+background:#1b263b;
+color:white;
+text-decoration:none;
+border-radius:6px;
+transition:0.3s;
+}
+
+.btn-regresar:hover{
+background:#0d1b2a;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="login-box">
+
+<img src="img/logo.png" >
+
+<h2>Iniciar Sesión</h2>
+
+<input type="text" id="usuario" placeholder="Usuario">
+<input type="password" id="password" placeholder="Contraseña">
+
+<button onclick="login()">Entrar</button>
+
+<a href="index.html" class="btn-regresar">Cancelar</a>
+
+<p id="error"></p>
+
+</div>
+
+<script>
+
+const API_URL="https://script.google.com/macros/s/AKfycbzAUi61M5P9FnHz-fqkDpXO5gEgCCTbcGca4GOt9swgLXgTBNH5wbPfbCjXS5DQKOR4/exec";
+
+async function login(){
+
+const usuario=document.getElementById("usuario").value;
+const password=document.getElementById("password").value;
+const error=document.getElementById("error");
+
+error.innerText="";
+
+if(usuario=="" || password==""){
+error.innerText="Ingresa usuario y contraseña";
+return;
+}
+
+try{
+
+const res=await fetch(API_URL,{
+method:"POST",
+body:new URLSearchParams({
+tipo:"login",
+usuario:usuario,
+password:password
+})
+});
+
+const data=await res.json();
+
+console.log("Respuesta servidor:",data);
+
+/* LOGIN CORRECTO */
+
+if(data.status=="ok"){
+
+localStorage.setItem("session",JSON.stringify(data));
+
+/* CONTROL DE ROL DESDE SPREADSHEET (AGREGADO) */
+if(data.rol && data.rol.toLowerCase()=="cliente"){
+window.location.href="cliente.html";
+return;
+}
+
+if(data.rol && data.rol.toLowerCase()=="admin"){
+// administrador continúa al panel
+}
+
+/* REDIRECCION AL PANEL */
+
+window.location.href="./panel.html";
+
+}else{
+
+error.innerText="Usuario o contraseña incorrectos";
+
+}
+
+}catch(err){
+
+console.log(err);
+error.innerText="Error de conexión con el servidor";
+
+}
+
+}
+
+</script>
+
+</body>
+</html>

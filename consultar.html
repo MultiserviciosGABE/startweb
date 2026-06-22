@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Historial de Órdenes | Multiservicios GABE</title>
+
+<style>
+body{font-family:Arial;background:#f4f6f9;margin:0;}
+header{background:#0d1b2a;color:white;padding:15px;display:flex;justify-content:space-between;align-items:center;}
+header button{background:#0077b6;border:none;padding:8px 15px;color:white;border-radius:6px;cursor:pointer;}
+.container{
+padding:20px;
+max-width:1100px;
+margin:auto;
+}
+
+.filtros{
+background:white;padding:20px;border-radius:10px;
+box-shadow:0 5px 15px rgba(0,0,0,0.1);margin-bottom:20px;
+}
+
+.filtros input{
+padding:8px;margin:5px;border-radius:6px;border:1px solid #ccc;
+}
+
+.filtros button{
+background:#0077b6;border:none;color:white;
+padding:8px 15px;border-radius:6px;cursor:pointer;
+}
+
+table{
+width:80%;border-collapse:collapse;background:white;
+
+}
+
+th,td{padding:10px;border-bottom:1px solid #ddd;vertical-align:middle;}
+th{background:#1b263b;color:white;text-align:center;}
+
+.estadoNueva{color:#e67e22;font-weight:bold;}
+.estadoProceso{color:#f39c12;font-weight:bold;}
+.estadoTerminada{color:#2ecc71;font-weight:bold;}
+
+.btnPDF{
+background:#e63946;border:none;color:white;
+padding:5px 10px;border-radius:5px;cursor:pointer;font-size:12px;
+}
+
+.btnPDF:hover{background:#b71c1c;}
+
+.modal{
+position:fixed;top:0;left:0;right:0;bottom:0;
+background:rgba(0,0,0,0.6);display:none;
+justify-content:center;align-items:center;
+}
+table{
+width:100%;
+border-collapse:collapse;
+background:white;
+box-shadow:0 5px 10px rgba(0,0,0,0.1);
+}
+
+th,td{
+padding:10px;
+border-bottom:1px solid #ddd;
+vertical-align:middle;
+text-align:left;
+}
+
+th{
+background:#1b263b;
+color:white;
+text-align:center;
+}
+
+/* ancho fijo de columnas */
+
+th:nth-child(1), td:nth-child(1){width:120px;}
+th:nth-child(2), td:nth-child(2){width:220px;}
+th:nth-child(3), td:nth-child(3){width:500px;}
+th:nth-child(4), td:nth-child(4){width:120px;text-align:center;}
+th:nth-child(5), td:nth-child(5){width:150px;text-align:center;}
+th:nth-child(6), td:nth-child(6){width:120px;text-align:center;}
+.modal-box{
+background:white;padding:20px;border-radius:10px;width:400px;
+/* ===== RESPONSIVE MOVIL ===== */
+
+@media (max-width:900px){
+
+header{
+flex-direction:column;
+align-items:flex-start;
+gap:10px;
+}
+
+.container{
+padding:15px;
+}
+
+.filtros{
+display:flex;
+flex-direction:column;
+}
+
+.filtros input,
+.filtros button{
+width:100%;
+margin:5px 0;
+}
+
+table{
+font-size:13px;
+}
+
+th,td{
+padding:8px;
+}
+
+}
+
+/* ===== TABLA SCROLL EN CELULAR ===== */
+
+@media (max-width:700px){
+
+.container{
+overflow-x:auto;
+}
+
+table{
+min-width:750px;
+}
+
+}
+
+/* ===== BOTONES MOVIL ===== */
+
+@media (max-width:600px){
+
+header button{
+width:100%;
+margin-top:5px;
+}
+
+}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<h2>Historial de Órdenes</h2>
+<div>
+<button onclick="window.location='panel.html'">Regresar a Panel</button>
+<button onclick="logout()">Cerrar sesión</button>
+</div>
+</header>
+
+<div class="container">
+
+<div class="filtros">
+<input type="date" id="filtroFecha">
+<input type="text" id="filtroNombre" placeholder="Buscar cliente">
+<input type="text" id="filtroOrden" placeholder="Número de orden">
+<button onclick="consultar()">Buscar</button>
+<button onclick="limpiar()">Limpiar</button>
+</div>
+
+<div>
+Resultados encontrados: <b id="totalResultados">0</b>
+</div>
+
+<table>
+<thead>
+<tr>
+<th>Orden</th>
+<th>Cliente</th>
+<th>Trabajo</th>
+<th>Estado</th>
+<th>Fecha</th>
+<th>PDF</th>
+</tr>
+</thead>
+
+<tbody id="tablaResultados">
+<tr>
+<td colspan="6">Use los filtros para buscar</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+
+<div class="modal" id="modal">
+<div class="modal-box">
+<h3>Detalle de Orden</h3>
+<p id="detalleOrden"></p>
+<button onclick="cerrarModal()">Cerrar</button>
+</div>
+</div>
+
+<script>
+
+if(!localStorage.getItem("session")){
+window.location="login.html";
+}
+
+/* ===== SEGURIDAD AGREGADA (SIN MODIFICAR CODIGO EXISTENTE) ===== */
+
+const session = JSON.parse(localStorage.getItem("session"));
+
+/* Bloquear clientes que intenten abrir esta página por URL */
+if(session && session.rol && session.rol.toLowerCase()=="cliente"){
+alert("Acceso solo para administradores");
+window.location="cliente.html";
+}
+
+/* Cierre automático de sesión (30 minutos) */
+const tiempoSesion = localStorage.getItem("sessionTime");
+
+if(tiempoSesion){
+const ahora = Date.now();
+const diferencia = ahora - tiempoSesion;
+const minutos = diferencia / 60000;
+
+if(minutos > 30){
+alert("Sesión expirada");
+localStorage.removeItem("session");
+localStorage.removeItem("sessionTime");
+window.location="login.html";
+}
+}
+
+/* ===== FIN SEGURIDAD ===== */
+
+
+const API="https://script.google.com/macros/s/AKfycbzAUi61M5P9FnHz-fqkDpXO5gEgCCTbcGca4GOt9swgLXgTBNH5wbPfbCjXS5DQKOR4/exec";
+
+let ordenes=[];
+
+async function cargarOrdenes(){
+const res = await fetch(API+"?tipo=ordenes");
+ordenes = await res.json();
+mostrarResultados(ordenes);
+}
+
+function consultar(){
+
+const fecha=document.getElementById("filtroFecha").value;
+const nombre=document.getElementById("filtroNombre").value.toLowerCase();
+const orden=document.getElementById("filtroOrden").value.toLowerCase();
+
+let resultados=ordenes.filter(o=>{
+
+let coincide=true;
+
+if(fecha){
+let f=new Date(o.fecha).toISOString().slice(0,10);
+if(f!==fecha) coincide=false;
+}
+
+if(nombre){
+if(!o.cliente.toLowerCase().includes(nombre)) coincide=false;
+}
+
+if(orden){
+if(!o.orden.toLowerCase().includes(orden)) coincide=false;
+}
+
+return coincide;
+
+});
+
+mostrarResultados(resultados);
+
+}
+
+function mostrarResultados(lista){
+
+const tabla=document.getElementById("tablaResultados");
+tabla.innerHTML="";
+document.getElementById("totalResultados").innerText=lista.length;
+
+if(lista.length==0){
+tabla.innerHTML="<tr><td colspan='6'>No se encontraron resultados</td></tr>";
+return;
+}
+
+lista.forEach(o=>{
+
+let fecha=o.fecha?new Date(o.fecha).toLocaleDateString():"";
+
+let estadoClase="";
+if(o.estado=="Nueva") estadoClase="estadoNueva";
+if(o.estado=="Proceso") estadoClase="estadoProceso";
+if(o.estado=="Terminada") estadoClase="estadoTerminada";
+tabla.innerHTML+=`
+<tr onclick="verDetalle('${o.orden}','${o.cliente}','${o.trabajo}','${o.estado}','${fecha}')">
+<td>${o.orden}</td>
+<td>${o.cliente}</td>
+<td>${o.trabajo}</td>
+<td class="${estadoClase}">${o.estado}</td>
+<td>${fecha}</td>
+<td>
+<button class="btnPDF" onclick="event.stopPropagation(); abrirPDF('${o.orden}')">📄 PDF</button>
+</td>
+</tr>
+`;
+
+verificarPDF(o.orden);
+
+});
+
+}
+
+function verificarPDF(orden){
+
+let url="ordenes/"+orden+".pdf";
+
+let img = new Image();
+
+img.onload=function(){
+document.getElementById("pdf_"+orden).innerHTML=
+`<button class="btnPDF" onclick="abrirPDF('${orden}')">PDF</button>`;
+}
+
+img.onerror=function(){
+document.getElementById("pdf_"+orden).innerHTML="";
+}
+
+img.src=url;
+
+}
+
+function abrirPDF(orden){
+window.open("ordenes/"+orden+".pdf","_blank");
+}
+
+function cerrarModal(){
+document.getElementById("modal").style.display="none";
+}
+
+function limpiar(){
+document.getElementById("filtroFecha").value="";
+document.getElementById("filtroNombre").value="";
+document.getElementById("filtroOrden").value="";
+consultar();
+}
+
+function logout(){
+localStorage.removeItem("session");
+window.location="login.html";
+}
+
+document.getElementById("filtroNombre").addEventListener("keyup",consultar);
+document.getElementById("filtroOrden").addEventListener("keyup",consultar);
+
+cargarOrdenes();
+
+</script>
+
+</body>
+</html>
